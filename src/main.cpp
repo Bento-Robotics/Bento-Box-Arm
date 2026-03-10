@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Servo.h>
+#include <Adafruit_NeoPixel.h>
 
 #include "micro_rosso.h"
 
@@ -12,6 +13,10 @@ SyncTime sync_time;
 #include "ros_status.h"
 RosStatus ros_status;
 
+const int ledpin = 25;
+Adafruit_NeoPixel pixel(1, ledpin, NEO_GRB + NEO_KHZ800);
+
+
 #include "micro_rosso_2dof_arm.hpp"
 Two_DOF_Arm two_DOF_arm;
 
@@ -20,7 +25,8 @@ Servo servo_bottom;
 
 void led_callback(int64_t last_call_time) {
   static bool status;
-  digitalWrite(LED_BUILTIN, status);
+  pixel.setPixelColor(0, pixel.Color(0, 20 * status, 0));
+  pixel.show();
   status = !status;
 }
 
@@ -34,7 +40,8 @@ void setup() {
   servo_bottom.attach(27, 890, 2530);
   constexpr std::pair<float, float> servo_bottom_calibration = {215, 0}; // degrees
 
-  pinMode(LED_BUILTIN, OUTPUT);
+  pixel.begin();
+  pixel.clear();
   D_print("Setting up transport... ");
   Serial.begin(115200);
   set_microros_serial_transports(Serial);
