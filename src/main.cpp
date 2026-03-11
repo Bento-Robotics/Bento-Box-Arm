@@ -1,6 +1,6 @@
+#include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
 #include <Servo.h>
-#include <Adafruit_NeoPixel.h>
 
 #include "micro_rosso.h"
 
@@ -16,12 +16,13 @@ RosStatus ros_status;
 const int ledpin = 25;
 Adafruit_NeoPixel pixel(1, ledpin, NEO_GRB + NEO_KHZ800);
 
-
-#include "micro_rosso_2dof_arm.hpp"
-Two_DOF_Arm two_DOF_arm;
+#include "micro_rosso_4dof_arm.hpp"
+Three_DOF_Arm_with_endeffector four_DOF_arm;
 
 Servo servo_top;
 Servo servo_bottom;
+Servo servo_wrist;
+Servo servo_gripper;
 
 void led_callback(int64_t last_call_time) {
   static bool status;
@@ -35,10 +36,14 @@ void setup() {
 
   // DS3240 limits:  min: 500 , max: 2500
   // Values constrained by mounting position
-  servo_top.attach(26, 650, 2340);
-  constexpr std::pair<float, float> servo_top_calibration = {223, 0}; // degrees
-  servo_bottom.attach(27, 890, 2530);
+  servo_bottom.attach(3, 890, 2530);
   constexpr std::pair<float, float> servo_bottom_calibration = {215, 0}; // degrees
+  servo_top.attach(4, 650, 2340);
+  constexpr std::pair<float, float> servo_top_calibration = {223, 0}; // degrees
+  servo_wrist.attach(5, 940, 2500);
+  constexpr std::pair<float, float> servo_wrist_calibration = {215, 0}; // degrees
+  servo_gripper.attach(6, 1000, 1230);
+  constexpr std::pair<float, float> servo_gripper_calibration = {215, 0}; // degrees
 
   pixel.begin();
   pixel.clear();
@@ -74,8 +79,8 @@ void setup() {
 
   const uint32_t linkage_bottom_length_mm = 150;
   const uint32_t linkage_top_length_mm = 150;
-  if (!two_DOF_arm.setup(&servo_bottom, &servo_top, linkage_bottom_length_mm, linkage_top_length_mm,
-                         servo_top_calibration, servo_bottom_calibration))
+  if (!four_DOF_arm.setup(&servo_bottom, &servo_top, &servo_wrist, &servo_gripper, linkage_bottom_length_mm, linkage_top_length_mm,
+                         servo_top_calibration, servo_bottom_calibration, servo_wrist_calibration, servo_gripper_calibration))
     D_println("FAIL two_DOF_arm.setup()");
 
   D_println("Boot completed.");
