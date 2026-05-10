@@ -36,14 +36,14 @@ void setup() {
 
   // DS3240 limits:  min: 500 , max: 2500
   // Values constrained by mounting position
-  servo_bottom.attach(3, 890, 2530);
+  servo_bottom.attach(3, 890, 2480);
   constexpr std::pair<float, float> servo_bottom_calibration = {215, 0}; // degrees
   servo_top.attach(4, 650, 2340);
   constexpr std::pair<float, float> servo_top_calibration = {223, 0}; // degrees
-  servo_wrist.attach(5, 940, 2500);
-  constexpr std::pair<float, float> servo_wrist_calibration = {215, 0}; // degrees
-  servo_gripper.attach(6, 1000, 1230);
-  constexpr std::pair<float, float> servo_gripper_calibration = {215, 0}; // degrees
+  servo_wrist.attach(1, 950, 2500);
+  constexpr std::pair<float, float> servo_wrist_calibration = {125, -90}; // degrees
+  servo_gripper.attach(2, 500, 2500);
+  constexpr std::pair<float, float> servo_gripper_calibration = {180, 0}; // degrees
 
   pixel.begin();
   pixel.clear();
