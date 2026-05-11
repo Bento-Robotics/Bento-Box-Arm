@@ -2,3 +2,4 @@
 .pio
 .idea
 compile_commands.json
+*.uf2
