@@ -18,3 +18,11 @@ services:
       - '/dev:/dev'
     working_dir: '/workspace'
     command: 'pio run -t upload'
+  uros-agent:
+    image: micro-ros-agent:jazzy
+    container_name: uros-bbarm
+    privileged: true
+    volumes:
+      - '/dev:/dev'
+    network_mode: host
+    command: 'serial -D /dev/ttyACM0'
