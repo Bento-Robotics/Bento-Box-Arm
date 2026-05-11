@@ -1,0 +1,20 @@
+services:
+  contained-platformio:
+    build:
+      dockerfile_inline: |
+        FROM platformio:latest
+
+        RUN apt-get update && apt-get upgrade -y && apt-get install \
+                 git cmake clang -y && rm -rf /var/lib/apt/lists/*
+
+        RUN mkdir -p /root/.platformio/penv/bin/
+        RUN touch /root/.platformio/penv/bin/activate
+
+        ENTRYPOINT /bin/bash
+    container_name: contained-platformio-bbarm
+    privileged: true
+    volumes:
+      - '.:/workspace'
+      - '/dev:/dev'
+    working_dir: '/workspace'
+    command: 'pio run -t upload'
