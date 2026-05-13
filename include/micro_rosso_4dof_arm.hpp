@@ -62,7 +62,7 @@ private:
   static void control_loop_cb(int64_t last_call_time);
   static void home_srv_cb(const void *req, void *res);
   static void stash_endeffector_srv_cb(const void *req, void *res);
-  static void endeffector_keep_angle_srv_cb(const void *req, void *res);
+  static void endeffector_hold_angle_srv_cb(const void *req, void *res);
 
   typedef void (*cbt)(const void *);
 };

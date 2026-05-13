@@ -25,22 +25,23 @@ std_msgs__msg__Float64 msg_wrist_angle;
 
 std_msgs__msg__Float64 _goal_wrist_angle;
 std_msgs__msg__Float64 _actual_wrist_angle;
+std_msgs__msg__Float64 _wrist_horizontal_offset_angle;
 
 // endeffector control
 service_descriptor srvdescriptor_stash_endeffector_srv;
 std_srvs__srv__SetBool_Request stash_endeffector_srv_request;
 std_srvs__srv__SetBool_Response stash_endeffector_srv_response;
 
-service_descriptor srvdescriptor_endeffector_keep_angle_srv;
-std_srvs__srv__SetBool_Request endeffector_keep_angle_srv_request;
-std_srvs__srv__SetBool_Response endeffector_keep_angle_srv_response;
+service_descriptor srvdescriptor_endeffector_hold_angle_srv;
+std_srvs__srv__SetBool_Request endeffector_hold_angle_srv_request;
+std_srvs__srv__SetBool_Response endeffector_hold_angle_srv_response;
 
 subscriber_descriptor sdescriptor_endeffector_relative_control;
 subscriber_descriptor sdescriptor_endeffector_absolute_control;
 std_msgs__msg__Float64 msg_endeffector_state;
 
 std_msgs__msg__Float64 _actual_endeffector_state;
-bool endeffector_keep_angle;
+bool endeffector_hold_angle;
 
 // joint states
 publisher_descriptor pdescriptor_joint_states;
@@ -138,13 +139,13 @@ bool Three_DOF_Arm_with_endeffector::setup(
     srvdescriptor_stash_endeffector_srv.callback = &stash_endeffector_srv_cb;
     micro_rosso::services.push_back(&srvdescriptor_stash_endeffector_srv);
 
-    srvdescriptor_endeffector_keep_angle_srv.qos = QOS_DEFAULT;
-    srvdescriptor_endeffector_keep_angle_srv.type_support = ROSIDL_GET_SRV_TYPE_SUPPORT(std_srvs, srv, SetBool);
-    srvdescriptor_endeffector_keep_angle_srv.service_name = "/keep_endeffector_angle";
-    srvdescriptor_endeffector_keep_angle_srv.request = &endeffector_keep_angle_srv_request;
-    srvdescriptor_endeffector_keep_angle_srv.response = &endeffector_keep_angle_srv_response;
-    srvdescriptor_endeffector_keep_angle_srv.callback = &endeffector_keep_angle_srv_cb;
-    micro_rosso::services.push_back(&srvdescriptor_stash_endeffector_srv);
+    srvdescriptor_endeffector_hold_angle_srv.qos = QOS_DEFAULT;
+    srvdescriptor_endeffector_hold_angle_srv.type_support = ROSIDL_GET_SRV_TYPE_SUPPORT(std_srvs, srv, SetBool);
+    srvdescriptor_endeffector_hold_angle_srv.service_name = "/hold_endeffector_angle";
+    srvdescriptor_endeffector_hold_angle_srv.request = &endeffector_hold_angle_srv_request;
+    srvdescriptor_endeffector_hold_angle_srv.response = &endeffector_hold_angle_srv_response;
+    srvdescriptor_endeffector_hold_angle_srv.callback = &endeffector_hold_angle_srv_cb;
+    micro_rosso::services.push_back(&srvdescriptor_endeffector_hold_angle_srv);
 
     pdescriptor_joint_states.qos = QOS_DEFAULT;
     pdescriptor_joint_states.type_support =
@@ -301,8 +302,11 @@ void Three_DOF_Arm_with_endeffector::control_loop_cb(int64_t last_call_time) {
   if (_goal_wrist_angle.data != _actual_wrist_angle.data) {
     controller(&_actual_wrist_angle.data, _goal_wrist_angle.data);
   }
+  if (endeffector_hold_angle)
+    angle_wrist_to(_actual_wrist_angle.data + _wrist_horizontal_offset_angle.data);
+  else
+    angle_wrist_to(_actual_wrist_angle.data);
   move_endeffector(_actual_endeffector_state.data);
-  angle_wrist_to(_actual_wrist_angle.data);
 }
 
 void Three_DOF_Arm_with_endeffector::home_srv_cb(const void *req, void *res) {
@@ -316,8 +320,8 @@ void Three_DOF_Arm_with_endeffector::stash_endeffector_srv_cb(const void *req, v
   static_cast<std_srvs__srv__SetBool_Response *>(res)->success = true;
 }
 
-void Three_DOF_Arm_with_endeffector::endeffector_keep_angle_srv_cb(const void *req, void *res) {
-  endeffector_keep_angle = (static_cast<const std_srvs__srv__SetBool_Request *>(req)->data);
+void Three_DOF_Arm_with_endeffector::endeffector_hold_angle_srv_cb(const void *req, void *res) {
+  endeffector_hold_angle = (static_cast<const std_srvs__srv__SetBool_Request *>(req)->data);
   static_cast<std_srvs__srv__SetBool_Response *>(res)->success = true;
 }
 
@@ -340,7 +344,7 @@ void Three_DOF_Arm_with_endeffector::move_arm_to(float x, float y) {
   float angle_top = PI - acos((static_cast<float>(sq(_linkage_bottom_length) + sq(_linkage_top_length)) -
                                sq(length_servobottom_to_wrist)) /
                               static_cast<float>(2 * _linkage_bottom_length * _linkage_top_length));
-  float angle_wrist = PI + (PI - angle_bottom) + angle_top;
+  _wrist_horizontal_offset_angle.data = (angle_top - angle_bottom) * RAD_TO_DEG;
 
   float angle_top_deg = 180 - angle_top * RAD_TO_DEG;
   float angle_bottom_deg = 180 - angle_bottom * RAD_TO_DEG;
@@ -348,7 +352,6 @@ void Three_DOF_Arm_with_endeffector::move_arm_to(float x, float y) {
   float angle_top_deg_servoscaled = map(angle_top_deg, _servo_limits[TOP].first, _servo_limits[TOP].second, 0, 180);
   float angle_bottom_deg_servoscaled =
       map(angle_bottom_deg, _servo_limits[BOTTOM].first, _servo_limits[BOTTOM].second, 0, 180);
-  float angle_wrist_deg_servoscaled = map(angle_wrist, _servo_limits[WRIST].first, _servo_limits[WRIST].second, 0, 180);
 
   // clip to servo maximums
   if (angle_top_deg_servoscaled > max(_servo_limits[TOP].first, _servo_limits[TOP].second))
@@ -367,22 +370,18 @@ void Three_DOF_Arm_with_endeffector::move_arm_to(float x, float y) {
   // update servos
   _servo[TOP]->write(static_cast<int>(angle_top_deg_servoscaled));
   _servo[BOTTOM]->write(static_cast<int>(angle_bottom_deg_servoscaled));
-  if (endeffector_keep_angle)
-    _servo[WRIST]->write(static_cast<int>(angle_wrist_deg_servoscaled));
 }
 
 void Three_DOF_Arm_with_endeffector::angle_wrist_to(float angle) {
   _actual_angles[WRIST] = angle * DEG_TO_RAD;
-  float real_angle = angle + 90.f; // servo is mounted 90° to arm
-  int angle_wrist_deg_servoscaled = map(real_angle, _servo_limits[BOTTOM].first, _servo_limits[BOTTOM].second, 0, 180);
+  int angle_wrist_deg_servoscaled = map(angle, _servo_limits[WRIST].first, _servo_limits[WRIST].second, 0, 180);
   _servo[WRIST]->write(angle_wrist_deg_servoscaled);
 }
 
 void Three_DOF_Arm_with_endeffector::move_endeffector(float pos) {
   _actual_angles[ENDEFFECTOR] = pos * DEG_TO_RAD;
-  // float real_angle = angle + 90.f; // servo is mounted 90° to arm
   int angle_endeffector_servo_deg_servoscaled =
-      map(pos, _servo_limits[BOTTOM].first, _servo_limits[BOTTOM].second, 0, 180);
+      map(pos, _servo_limits[ENDEFFECTOR].first, _servo_limits[ENDEFFECTOR].second, 0, 180);
   _servo[ENDEFFECTOR]->write(angle_endeffector_servo_deg_servoscaled);
 }
 
