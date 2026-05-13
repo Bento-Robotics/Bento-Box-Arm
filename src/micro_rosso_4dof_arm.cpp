@@ -346,26 +346,17 @@ void Three_DOF_Arm_with_endeffector::move_arm_to(float x, float y) {
                               static_cast<float>(2 * _linkage_bottom_length * _linkage_top_length));
   _wrist_horizontal_offset_angle.data = (angle_top - angle_bottom) * RAD_TO_DEG;
 
-  float angle_top_deg = 180 - angle_top * RAD_TO_DEG;
-  float angle_bottom_deg = 180 - angle_bottom * RAD_TO_DEG;
-
-  float angle_top_deg_servoscaled = map(angle_top_deg, _servo_limits[TOP].first, _servo_limits[TOP].second, 0, 180);
-  float angle_bottom_deg_servoscaled =
-      map(angle_bottom_deg, _servo_limits[BOTTOM].first, _servo_limits[BOTTOM].second, 0, 180);
-
   // clip to servo maximums
-  if (angle_top_deg_servoscaled > max(_servo_limits[TOP].first, _servo_limits[TOP].second))
-    return;
-  if (angle_bottom_deg_servoscaled > max(_servo_limits[BOTTOM].first, _servo_limits[BOTTOM].second))
-    return;
-  if (angle_top_deg_servoscaled < min(_servo_limits[TOP].first, _servo_limits[TOP].second))
-    return;
-  if (angle_bottom_deg_servoscaled < min(_servo_limits[BOTTOM].first, _servo_limits[BOTTOM].second))
-    return;
+  float angle_top_deg = constrain(angle_top * RAD_TO_DEG , _servo_limits[TOP].second, _servo_limits[TOP].first);
+  float angle_bottom_deg = constrain(float(angle_bottom * RAD_TO_DEG), _servo_limits[BOTTOM].second, _servo_limits[BOTTOM].first);
+
+  float angle_top_deg_servoscaled = map(180 - angle_top_deg, _servo_limits[TOP].first, _servo_limits[TOP].second, 0, 180);
+  float angle_bottom_deg_servoscaled =
+      map(180 - angle_bottom_deg, _servo_limits[BOTTOM].first, _servo_limits[BOTTOM].second, 0, 180);
 
   // update joint state publisher values
-  _actual_angles[BOTTOM] = angle_bottom;
-  _actual_angles[TOP] = angle_top;
+  _actual_angles[BOTTOM] = angle_bottom_deg * DEG_TO_RAD;
+  _actual_angles[TOP] = angle_top_deg * DEG_TO_RAD;
 
   // update servos
   _servo[TOP]->write(static_cast<int>(angle_top_deg_servoscaled));
@@ -373,15 +364,17 @@ void Three_DOF_Arm_with_endeffector::move_arm_to(float x, float y) {
 }
 
 void Three_DOF_Arm_with_endeffector::angle_wrist_to(float angle) {
-  _actual_angles[WRIST] = angle * DEG_TO_RAD;
-  int angle_wrist_deg_servoscaled = map(angle, _servo_limits[WRIST].first, _servo_limits[WRIST].second, 0, 180);
+  float angle_constrained = constrain(angle, _servo_limits[WRIST].second, _servo_limits[WRIST].first);
+  _actual_angles[WRIST] = angle_constrained * DEG_TO_RAD;
+  int angle_wrist_deg_servoscaled = map(angle_constrained, _servo_limits[WRIST].first, _servo_limits[WRIST].second, 0, 180);
   _servo[WRIST]->write(angle_wrist_deg_servoscaled);
 }
 
 void Three_DOF_Arm_with_endeffector::move_endeffector(float pos) {
-  _actual_angles[ENDEFFECTOR] = pos * DEG_TO_RAD;
+  float pos_constrained = constrain(pos, _servo_limits[ENDEFFECTOR].second, _servo_limits[ENDEFFECTOR].first);
+  _actual_angles[ENDEFFECTOR] = pos_constrained * DEG_TO_RAD;
   int angle_endeffector_servo_deg_servoscaled =
-      map(pos, _servo_limits[ENDEFFECTOR].first, _servo_limits[ENDEFFECTOR].second, 0, 180);
+      map(pos_constrained, _servo_limits[ENDEFFECTOR].first, _servo_limits[ENDEFFECTOR].second, 0, 180);
   _servo[ENDEFFECTOR]->write(angle_endeffector_servo_deg_servoscaled);
 }
 
