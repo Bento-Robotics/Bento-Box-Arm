@@ -15,6 +15,7 @@ service_descriptor srvdescriptor_home_srv;
 std_srvs__srv__Trigger_Request home_srv_request;
 std_srvs__srv__Trigger_Response home_srv_response;
 
+
 geometry_msgs__msg__Point _goal_pos;
 geometry_msgs__msg__Point _actual_pos;
 
@@ -71,6 +72,13 @@ Three_DOF_Arm_with_endeffector::Three_DOF_Arm_with_endeffector() {
 
     _actual_angles[i] = 0.0; // zero out angles
   }
+
+  // zero out floats
+  //TODO (should not be necessary. testing)
+  _actual_pos.x = 0.0;
+  _actual_pos.y = 0.0;
+  _actual_wrist_angle.data = 0.0;
+  _actual_endeffector_state.data = 0.0;
 
   // rclc messages are zeroed by default, no need to initialize everything else
 }
@@ -170,7 +178,7 @@ bool Three_DOF_Arm_with_endeffector::setup(
   _servo_limits[ENDEFFECTOR] = servo_endeffector_limits;
 
   home_arm();              // the sudden movement is suboptimal, but servos are
-  stash_endeffector(true); // unidirectional communicators so we have no idea where they are.
+  // stash_endeffector(true); // unidirectional communicators so we have no idea where they are.
 
   D_println("done.");
   return true;
@@ -414,12 +422,16 @@ void Three_DOF_Arm_with_endeffector::home_arm() {
 
 void Three_DOF_Arm_with_endeffector::stash_endeffector(bool stash) {
   if (stash) {
-    // retract as far back as we can go
-    _goal_wrist_angle.data = _servo_limits[WRIST].first;
-    angle_wrist_to(_goal_wrist_angle.data);
+      // retract as far back as we can go
+      _goal_wrist_angle.data = _servo_limits[WRIST].first;
+      // and close the endeffector
+      _actual_endeffector_state.data = _servo_limits[ENDEFFECTOR].first;
+      angle_wrist_to(_goal_wrist_angle.data);
   } else {
-    // 0° is flat
-    _goal_wrist_angle.data = 0.f;
-    angle_wrist_to(_goal_wrist_angle.data);
+      // 0° is flat
+      _goal_wrist_angle.data = 0.f;
+      // and open the endeffector
+      _actual_endeffector_state.data = _servo_limits[ENDEFFECTOR].second;
+      angle_wrist_to(_goal_wrist_angle.data);
   }
 }
